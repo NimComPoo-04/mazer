@@ -10,7 +10,7 @@ void list_push(list_t *l, int move)
 {
 	if(l->size <= l->length)
 	{
-		l->size = 3 * l->size / 2 + 1;
+		l->size = 2 * l->size + 1;
 		l->moves = realloc(l->moves, sizeof(int) * l->size);
 	}
 
@@ -25,98 +25,77 @@ char list_pop(list_t *l)
 		return l->moves[--l->length];
 }
 
-
-int generate_maze_rec(mazer_t *m, int x, int y)
+void generate_maze(mazer_t *m)
 {
-#define CELLAT(_x_, _y_)  m->cells[((_x_) + (_y_) * m->width)]
+	extern list_t  stack;
 
-	if(x >= m->width || x < 0 || y < 0 || y >= m->height)
-		return 0;
+	if(stack.length <= 0)
+		return;
+
+	int y = list_pop(&stack);
+	int x = list_pop(&stack);
+
+	if(x < 0 || y < 0 || x > m->width || y > m->height)
+		return;
 
 	if(m->cells[y * m->width + x] & VISITED)
-		return 0;
+		return;
 
-	m->cells[y * m->width + x] |= VISITED;
+	m->cells[y * m->width + x] |= VISITED; // mark as visited
 
-	struct mazemove
-	{
-		int dx; int dy;
-		char move1; char move2;
-	} current[4] = {
-		{1, 0, RIGHT, LEFT},
-		{-1, 0, LEFT, RIGHT},
-		{0, 1, DOWN, UP},
-		{0, -1, UP, DOWN}
-	};
+	int current[4] = {0, 1, 2, 3};
 
 	for(int i = 3; i > 1; i--)
 	{
-		int c = rand() % i;
-		struct mazemove mov = current[c];
+		int c = rand() % 4;
+		int t = current[c];
 		current[c] = current[i];
-		current[i] = mov;
+		current[i] = t;
 	}
 
-	int i = 0;
-	for(i = 0; i < 4; i++)
+	for(int i = 0; i < 4; i++)
 	{
-		if(current[i].dx + x >= 0 && current[i].dx + x < m->width &&
-				current[i].dy + y >= 0 && current[i].dy + y < m->height &&
-				!(CELLAT(current[i].dx + x, current[i].dy + y) & VISITED))
+		switch(current[i])
 		{
-			CELLAT(x, y) |= current[i].move1;
-			CELLAT(x + current[i].dx, y + current[i].dy) |= current[i].move2;
+			case 0:
+				if(x + 1 < m->width)
+				{
+					m->cells[y * m->width + x]       |= RIGHT;
+					m->cells[y * m->width + (x + 1)] |= LEFT;
+					list_push(&stack, x + 1);
+					list_push(&stack, y);
+				}
+				break;
 
-			generate_maze_rec(m, x + current[i].dx, y + current[i].dy);
+			case 1:
+				if(x - 1 >= 0)
+				{
+					m->cells[y * m->width + x]       |= LEFT;
+					m->cells[y * m->width + (x - 1)] |= RIGHT;
+					list_push(&stack, x - 1);
+					list_push(&stack, y);
+				}
+				break;
+
+			case 2:
+				if(y + 1 < m->height)
+				{
+					m->cells[y * m->width + x]       |= DOWN;
+					m->cells[(y + 1) * m->width + x] |= UP;
+					list_push(&stack, x);
+					list_push(&stack, y + 1);
+				}
+				break;
+
+			case 3:
+				if(y - 1 >= 0)
+				{
+					m->cells[y * m->width + x]       |= UP;
+					m->cells[(y - 1) * m->width + x] |= DOWN;
+					list_push(&stack, x);
+					list_push(&stack, y - 1);
+				}
+				break;
 		}
 	}
-
-#undef CELLAT
-
-	return 1;
-}
-
-void generate_maze(mazer_t *m, list_t *l)
-{
-	srand(time(0));
-	generate_maze_rec(m, 0, 0);
-}
-
-int solve_maze_rec(mazer_t *m, list_t *l, int x, int y)
-{
-#define CELLAT(_x_, _y_)  m->cells[((_x_) + (_y_) * m->width)]
-	if(x < 0 || x >= m->width || y < 0 || y >= m->height)
-		return 0;
-
-	if(CELLAT(x, y) & SEARCHED)
-		return 0;
-
-	if(x == m->width - 1 && y == m->height - 1)
-	{
-		list_push(l, y * m->width + x);
-		return 1;
-	}
-
-	CELLAT(x, y) |= SEARCHED;
-
-	int b = 0;
-
-	if(CELLAT(x, y) & LEFT && solve_maze_rec(m, l, x - 1, y)) b = 1;
-	if(CELLAT(x, y) & RIGHT && solve_maze_rec(m, l, x + 1, y)) b = 1;
-	if(CELLAT(x, y) & UP && solve_maze_rec(m, l, x, y - 1)) b = 1;
-	if(CELLAT(x, y) & DOWN && solve_maze_rec(m, l, x, y + 1)) b = 1;
-
-
-	if(b) list_push(l, y * m->width + x);
-#undef CELLAT
-
-	return b;
-}
-
-list_t solve_maze(mazer_t *m)
-{
-	//TODO: Use DFS to solve the maze and return the solution
-	list_t l = {0};
-	solve_maze_rec(m, &l, 0, 0);
-	return l;
 }

@@ -1,11 +1,12 @@
 #include <stdlib.h>
 #include <raylib.h>
-#include <time.h>
 
 #include "mazer.h"
 
 #define WIDTH 100
 #define HEIGHT 100
+
+list_t stack;
 
 int main(void)
 {
@@ -16,12 +17,15 @@ int main(void)
 
 	m.cells = calloc(sizeof(char), m.width * m.height);
 
-	list_t l = {0};
+	stack = (list_t){
+		.moves = calloc(sizeof(int), 32),
+		.length = 0,
+		.size = 32
+	};
 
-	list_push(&l, 0);
-	generate_maze(&m, &l);
-//	list_t moves = solve_maze(&m);
-
+	list_push(&stack, 0);	// x value
+	list_push(&stack, 0);	// y value
+				//
 	InitWindow(800, 800, "Maze");
 
 	while(!WindowShouldClose())
@@ -53,48 +57,23 @@ int main(void)
 			}
 		}
 
-		static int space_down = 0;
-		if(IsKeyDown(KEY_SPACE) && !space_down)
+		for(int i = 0; i < stack.length; i+=2)
 		{
-			generate_maze(&m, &l);
-			space_down = 1;
+			int x = stack.moves[i];
+			int y = stack.moves[i + 1];
+
+			DrawRectangle(x * cw, y * ch, cw, ch, PURPLE);
 		}
-		if(IsKeyUp(KEY_SPACE))
-			space_down = 0;
 
-		static int q_down = 0;
-		if(IsKeyDown(KEY_Q) && !q_down)
-		{
-			TraceLog(LOG_INFO, "--------------");
-			for(int i = 0; i < l.length; i++)
-			{
-				int x = l.moves[i] % m.width;
-				int y = l.moves[i] / m.width;
-				TraceLog(LOG_INFO, "x: %d   y: %d", x, y);
-			}
-			q_down = 1;
-		}
-		if(IsKeyUp(KEY_Q))
-			q_down = 0;
-
-		/*
-		for(int i = 0; i < moves.length; i++)
-		{
-			int v = moves.moves[i];
-
-			int x = v % m.width;
-			int y = v / m.width;
-
-			DrawRectangle(x * cw, y * ch, cw, ch, DARKBROWN);
-		}
-		*/
+		if(IsKeyDown(KEY_SPACE))
+			generate_maze(&m);
 
 		DrawFPS(3, 3);
 
 		EndDrawing();
 	}
 
-	CloseWindow();
+	// CloseWindow();
 
 	return 0;
 }
