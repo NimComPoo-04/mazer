@@ -10,8 +10,9 @@ void list_push(list_t *l, int move)
 {
 	if(l->size <= l->length)
 	{
-		l->size = 2 * l->size + 1;
+		l->size = 2 * l->size + sizeof(int);
 		l->moves = realloc(l->moves, sizeof(int) * l->size);
+		//printf("%d\n", l->size);
 	}
 
 	l->moves[l->length++] = move;
@@ -19,83 +20,105 @@ void list_push(list_t *l, int move)
 
 char list_pop(list_t *l)
 {
+	int j = 0;
+
 	if(l->length <= 0)
-		return NOMOVE;
+		j = NOMOVE;
 	else
-		return l->moves[--l->length];
+		j = l->moves[--l->length];
+
+	return j;
 }
 
-void generate_maze(mazer_t *m)
+void generate_maze_step(mazer_t *m, list_t *stack)
 {
-	extern list_t  stack;
-
-	if(stack.length <= 0)
+	if(stack->length <= 0)
 		return;
 
-	int y = list_pop(&stack);
-	int x = list_pop(&stack);
+	int y = list_pop(stack);
+	int x = list_pop(stack);
 
 	if(x < 0 || y < 0 || x > m->width || y > m->height)
 		return;
 
-	if(m->cells[y * m->width + x] & VISITED)
-		return;
-
 	m->cells[y * m->width + x] |= VISITED; // mark as visited
 
-	int current[4] = {0, 1, 2, 3};
+	struct {
+		int x, y;
+		int move1, move2;
+	} neighbour[4] = {0};
+	int len = 0;
 
-	for(int i = 3; i > 1; i--)
+	for(int i = -1; i <= 1; i++)
 	{
-		int c = rand() % 4;
-		int t = current[c];
-		current[c] = current[i];
-		current[i] = t;
-	}
+		if(i + y < 0 || i + y >= m->height)
+			continue;
 
-	for(int i = 0; i < 4; i++)
-	{
-		switch(current[i])
+		for(int j = -1; j <= 1; j++)
 		{
-			case 0:
-				if(x + 1 < m->width)
-				{
-					m->cells[y * m->width + x]       |= RIGHT;
-					m->cells[y * m->width + (x + 1)] |= LEFT;
-					list_push(&stack, x + 1);
-					list_push(&stack, y);
-				}
-				break;
+			if(abs(i) == abs(j))
+				continue;
 
-			case 1:
-				if(x - 1 >= 0)
-				{
-					m->cells[y * m->width + x]       |= LEFT;
-					m->cells[y * m->width + (x - 1)] |= RIGHT;
-					list_push(&stack, x - 1);
-					list_push(&stack, y);
-				}
-				break;
+			if(j + x < 0 || j + x >= m->width)
+				continue;
 
-			case 2:
-				if(y + 1 < m->height)
-				{
-					m->cells[y * m->width + x]       |= DOWN;
-					m->cells[(y + 1) * m->width + x] |= UP;
-					list_push(&stack, x);
-					list_push(&stack, y + 1);
-				}
-				break;
+			if(!(m->cells[(y + i) * m->width + (x + j)] & VISITED))
+			{
+				neighbour[len].x = x + j;
+				neighbour[len].y = y + i;
 
-			case 3:
-				if(y - 1 >= 0)
-				{
-					m->cells[y * m->width + x]       |= UP;
-					m->cells[(y - 1) * m->width + x] |= DOWN;
-					list_push(&stack, x);
-					list_push(&stack, y - 1);
-				}
-				break;
+				neighbour[len].move1 = (j == -1) * LEFT + (j == 1) * RIGHT + (i == -1) * UP + (i == 1) * DOWN; 
+				neighbour[len].move2 = (j == -1) * RIGHT + (j == 1) * LEFT + (i == -1) * DOWN + (i == 1) * UP; 
+
+				len++;
+			}
 		}
 	}
+
+	if(len == 0)
+		return;
+
+	list_push(stack, x);
+	list_push(stack, y);
+
+	int r = rand() % len;
+
+	m->cells[y * m->width + x] |= neighbour[r].move1;
+	m->cells[neighbour[r].y * m->width + neighbour[r].x] |= neighbour[r].move2;
+
+	list_push(stack, neighbour[r].x);
+	list_push(stack, neighbour[r].y);
+}
+
+int solve_maze(mazer_t *m, list_t *l, int x, int y)
+{
+	if(x == m->width - 1 && y == m->height - 1)
+	{
+		list_push(l, x);
+		list_push(l, y);
+		return 1;
+	}
+
+	if(x < 0 || y < 0 || x >= m->width || y >= m->height)
+		return 0;
+
+	if(m->cells[y * m->width + x] & SEARCHED)
+		return 0;
+
+	m->cells[y * m->width + x] |= SEARCHED;
+
+	int b = 0;
+
+	if(!b && m->cells[y * m->width + x] & LEFT) b = solve_maze(m, l, x - 1, y);
+	if(!b && m->cells[y * m->width + x] & RIGHT) b = solve_maze(m, l, x + 1, y);
+	if(!b && m->cells[y * m->width + x] & UP) b = solve_maze(m, l, x, y - 1);
+	if(!b && m->cells[y * m->width + x] & DOWN) b = solve_maze(m, l, x, y + 1);
+
+	if(b)
+	{
+		list_push(l, x);
+		list_push(l, y);
+	}
+
+	return b;
 }

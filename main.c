@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <time.h>
 #include <raylib.h>
 
 #include "mazer.h"
@@ -6,27 +7,36 @@
 #define WIDTH 100
 #define HEIGHT 100
 
-list_t stack;
+void draw_path(list_t *l, int cw, int ch, Color col)
+{
+	for(int i = 0; i < l->length - 4; i+=2)
+	{
+		Vector2 start = {l->moves[i] * cw + cw/2, l->moves[i + 1] * ch + ch/2};
+		Vector2 end = {l->moves[i + 2] * cw + cw/2, l->moves[i + 3] * ch + ch/2};
+
+		DrawLineEx(start, end, 3, col);
+	}
+}
 
 int main(void)
 {
+	srand(time(0));
+
 	mazer_t m = {0};
 
 	m.width = WIDTH; 
 	m.height = HEIGHT; 
 
-	m.cells = calloc(sizeof(char), m.width * m.height);
+	m.cells = calloc(sizeof(char), 100 + m.width * m.height);
 
-	stack = (list_t){
-		.moves = calloc(sizeof(int), 32),
-		.length = 0,
-		.size = 32
-	};
-
+	list_t stack = {0};
 	list_push(&stack, 0);	// x value
 	list_push(&stack, 0);	// y value
 				//
+	// SetConfigFlags(FLAG_WINDOW_RESIZABLE);
 	InitWindow(800, 800, "Maze");
+
+	list_t path = {0};
 
 	while(!WindowShouldClose())
 	{
@@ -49,31 +59,41 @@ int main(void)
 					DrawRectangleLines(j * cw, i * ch, cw, ch, LIGHTGRAY);
 				else
 				{
-					if(!(m.cells[v] & UP))    DrawLineEx((Vector2){j * cw, i * ch}, (Vector2){(j + 1) * cw, i * ch}, 3, RED);
-					if(!(m.cells[v] & DOWN))  DrawLineEx((Vector2){j * cw, (i + 1) * ch}, (Vector2){(j + 1) * cw, (i + 1) * ch}, 3, RED);
-					if(!(m.cells[v] & LEFT))  DrawLineEx((Vector2){j * cw, i * ch}, (Vector2){j * cw, (i + 1) * ch}, 3, RED);
-					if(!(m.cells[v] & RIGHT)) DrawLineEx((Vector2){(j + 1) * cw, i * ch}, (Vector2){(j + 1) * cw, (i + 1) * ch}, 3, RED);
+					if(!(m.cells[v] & UP))    DrawLineEx((Vector2){j * cw, i * ch}, (Vector2){(j + 1) * cw, i * ch}, 2.5, RED);
+					if(!(m.cells[v] & DOWN))  DrawLineEx((Vector2){j * cw, (i + 1) * ch}, (Vector2){(j + 1) * cw, (i + 1) * ch}, 2.5, RED);
+					if(!(m.cells[v] & LEFT))  DrawLineEx((Vector2){j * cw, i * ch}, (Vector2){j * cw, (i + 1) * ch}, 2.5, RED);
+					if(!(m.cells[v] & RIGHT)) DrawLineEx((Vector2){(j + 1) * cw, i * ch}, (Vector2){(j + 1) * cw, (i + 1) * ch}, 2.5, RED);
 				}
 			}
 		}
 
-		for(int i = 0; i < stack.length; i+=2)
+		static int on = 0;
+		if(on)
 		{
-			int x = stack.moves[i];
-			int y = stack.moves[i + 1];
-
-			DrawRectangle(x * cw, y * ch, cw, ch, PURPLE);
+			if(stack.length != 0)
+			{
+				generate_maze_step(&m, &stack);
+				draw_path(&stack, cw, ch, GREEN);
+			}
+			else if(path.length == 0)
+				solve_maze(&m, &path, 0, 0);
 		}
+		else
+		{
+			DrawText("Maze Generation", 60, 280, 80, LIME);
+			DrawText("100 x 100 Grid", 140, 280 + 80 + 40, 80, LIME);
+		}
+		
 
 		if(IsKeyDown(KEY_SPACE))
-			generate_maze(&m);
+			on = 1;
 
-		DrawFPS(3, 3);
+		draw_path(&path, cw, ch, PINK);
+
+//		DrawFPS(3, 3);
 
 		EndDrawing();
 	}
-
-	// CloseWindow();
 
 	return 0;
 }

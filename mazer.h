@@ -7,7 +7,6 @@
 #define LEFT  4
 #define RIGHT 8
 
-#define STOP (UP | DOWN | LEFT | RIGHT)
 #define VISITED 16
 #define SEARCHED 32
 
@@ -28,6 +27,7 @@ typedef struct
 void list_push(list_t *l, int move);
 char list_pop(list_t *l);
 
-void generate_maze(mazer_t *m);
+void generate_maze_step(mazer_t *m, list_t *l);
+int solve_maze(mazer_t *m, list_t *l, int x, int y);
 
 #endif
